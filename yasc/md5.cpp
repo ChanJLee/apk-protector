@@ -37,6 +37,10 @@
 
 #ifndef HAVE_OPENSSL
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <string.h>
 
 #include "md5.h"
@@ -287,5 +291,9 @@ void MD5_Final(unsigned char *result, MD5_CTX *ctx)
 
     memset(ctx, 0, sizeof(*ctx));
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -6,7 +6,7 @@ LOCAL_SRC_FILES := \
 	BayRandom.cc \
 	Bays4.cc \
 	CodeTree.cc \
-	md5.c \
+	md5.cpp \
 	yarc.cpp \
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)
