@@ -2,22 +2,30 @@
 // Created by caspar on 6/23/16.
 //
 
-#ifndef DEMO_YARC_H
-#define DEMO_YARC_H
+#ifndef YARC_H
+#define YARC_H
 
 #include <android/log.h>
 #include "scope_obj.h"
 #include "scope_string.h"
+#include "scope_byte_element.h"
+#include "scope_object_element.h"
+#include "build/env.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
 
-#define  LOG_TAG    "yarc"
+#ifdef ENV_DEBUG
+#define  LOG_TAG    "yarc-jni"
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, \
                    __VA_ARGS__))
 #define LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, \
                    __VA_ARGS__))
+#else
+#define LOGE(...) (void*) 0
+#define LOGD(...) (void*) 0
+#endif
 
 const int ERROR_RUNTIME = -1;
 const int ERROR_REPACKAGE = -2;
@@ -71,8 +79,19 @@ typedef unsigned char u1;
     const char* NAME = NAME ## _scope_str.getCString();
 #define DEFINE_STR(NAME, ENV, JSTR) DEFINE_STR__(NAME, ENV, JSTR)
 
+#define DEFINE_BYTE_ELEMENT__(NAME, ENV, ARR) \
+    ScopeByteElement NAME ## _scope_byte_element(ENV, ARR); \
+    const jbyte * NAME = NAME ## _scope_byte_element.getBytes();
+#define DEFINE_BYTE_ELEMENT(NAME, ENV, ARR) DEFINE_BYTE_ELEMENT__(NAME, ENV, ARR)
+
+#define DEFINE_OBJECT_ELEMENT__(NAME, ENV, ARR, INDEX) \
+    ScopeObjectElement NAME ## _scope_object_element(ENV, ARR, INDEX); \
+    const jobject NAME = NAME ## _scope_object_element.getObject();
+#define DEFINE_OBJECT_ELEMENT(NAME, ENV, ARR, INDEX) DEFINE_OBJECT_ELEMENT__(NAME, ENV, ARR, INDEX)
+
+
 /* define function */
 DEFINE_FUNC(jstring, FUNC_getMd5, jstring text);
 DEFINE_FUNC(jstring, FUNC_getP, jobject context_object);
 
-#endif //DEMO_YARC_H
+#endif //YARC_H

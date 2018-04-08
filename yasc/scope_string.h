@@ -33,6 +33,10 @@ public:
     const char *getCString() const {
         return mCString;
     }
+
+    const jstring getJString() const {
+        return mJString;
+    }
 };
 
 #ifdef __cplusplus

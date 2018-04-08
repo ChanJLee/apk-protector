@@ -20,6 +20,21 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    signingConfigs {
+        debug {
+            storeFile file("../debug.keystore")
+            storePassword "5i17bdc"
+            keyAlias "shanbay"
+            keyPassword "5i17bdc"
+        }
+        release {
+            storeFile file("../debug.keystore")
+            storePassword "5i17bdc"
+            keyAlias "shanbay"
+            keyPassword "5i17bdc"
+        }
+    }
 }
 
 dependencies {

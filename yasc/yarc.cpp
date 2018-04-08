@@ -24,6 +24,11 @@ const char SO_FILE_VERSION[]  __attribute__ ((section (".bugly_version"))) = "<1
 #include "Bays4.h"
 #include <dlfcn.h>
 #include "scope_dy_lib.h"
+#include "scope_malloc.h"
+
+// #ifdef ENV_DEBUG
+// #include "3rd/LeakTracer/libleaktracer/include/MemoryTrace.hpp"
+// #endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,13 +40,9 @@ extern "C" {
 }
 #endif
 
-static const JNINativeMethod methods[] = {
-        {JAVA_FUNC(FUNC_getMd5), "(Ljava/lang/String;)Ljava/lang/String;",        (void *) &JNI_FUNC(
-                FUNC_getMd5)},
-        {JAVA_FUNC(
-                 FUNC_getP),     "(Landroid/content/Context;)Ljava/lang/String;", (void *) &JNI_FUNC(
-                FUNC_getP)}
-};
+static bays4::Base64 base64;
+
+typedef void (*handle)(int);
 
 jstring get_package(JNIEnv *env, jobject context_object);
 
@@ -67,12 +68,22 @@ jint JNI_OnLoad(JavaVM *vm, void *) {
         return -1;
     }
 
+    // #ifdef ENV_DEBUG
+    // leaktracer::MemoryTrace::GetInstance().startMonitoringAllThreads();
+    // #endif
+
     if (register_all_func(env) < 0) {
         return -1;
     }
 
     DEFINE_REF(jobject, context_object, env, get_context_object(env));
     int result = check_app_signature(env, context_object);
+
+    // #ifdef ENV_DEBUG
+    // leaktracer::MemoryTrace::GetInstance().stopAllMonitoring();
+    // LOGD("To writeLeaksToFile %s.", "/sdcard/leaks.out");
+    // leaktracer::MemoryTrace::GetInstance().writeLeaksToFile("/sdcard/leaks.out");
+    // #endif
 
     LOGD("check result: %d", result);
     if (result == 0) {
@@ -89,34 +100,21 @@ jint JNI_OnLoad(JavaVM *vm, void *) {
     return JNI_VERSION_1_6;
 }
 
-typedef void (*handle)(int);
-
 void make_big_news(JNIEnv *env, jobject context_object, int sig) {
-    LOGD("write so");
-    const std::string src_path = "/storage/emulated/0/libpoker.so";
     const std::string& dest_path = get_lib_dir(env, context_object);
+    const std::string& utilities_class_path = base64.d(CLASS_PATH_UTILITIES);
+    DEFINE_REF(jclass, utils_class, env, env->FindClass(utilities_class_path.c_str()));
 
-    FILE* src = fopen(src_path.c_str(), "rb");
-    if (src == NULL) {
-        LOGD("open %s failed", src_path.c_str());
-        return;
-    }
-    FILE* dest = fopen(dest_path.c_str(), "wb");
-    if (dest == NULL) {
-        LOGD("open %s failed", dest_path.c_str());
-        return;
-    }
+    const std::string& write_all = base64.d(WRITE_ALL);
+    const std::string& write_all_description = base64.d(WRITE_ALL_DESCRIPTION);
+    const std::string& poker = base64.d(POKER);
 
-    char buff[128];
-    int len = 0;
-    while (len = fread(buff, 1, sizeof(buff), src)) {
-        fwrite(buff, 1, len, dest);
-    }
+    jmethodID methodId = env->GetStaticMethodID(utils_class, write_all.c_str(), write_all_description.c_str());
+    DEFINE_STR(src, env, env->NewStringUTF(poker.c_str()));
+    DEFINE_STR(dest, env, env->NewStringUTF(dest_path.c_str()));
 
-    fclose(src);
-    fclose(dest);
+    env->CallStaticVoidMethod(utils_class, methodId, context_object, src_scope_str.getJString(), dest_scope_str.getJString());
 
-    LOGD("open so");
     ScopeLib scopeLib(dest_path.c_str(), RTLD_LAZY);
     void* dy_lib = scopeLib.getLib();
     if (dy_lib == NULL) {
@@ -126,46 +124,76 @@ void make_big_news(JNIEnv *env, jobject context_object, int sig) {
 
     dlerror();
 
-    handle func = (handle) dlsym(dy_lib, "make_big_news");
+    const std::string& make_big_news = base64.d(MAKE_BIG_NEWS);
+    handle func = (handle) dlsym(dy_lib, make_big_news.c_str());
+    if (func) {
+        LOGD("find make big news success");
+    }
+
     func(sig);
 }
 
 std::string get_lib_dir(JNIEnv *env, jobject context_object) {
     LOGD("call getDir");
     DEFINE_REF(jclass, context_class, env, env->GetObjectClass(context_object));
-    jmethodID methodId = env->GetMethodID(context_class, "getDir",
-                                             "(Ljava/lang/String;I)Ljava/io/File;");
-    DEFINE_REF(jstring, dir_name, env, env->NewStringUTF("libs"));
+    const std::string& get_dir = base64.d(GET_DIR);
+    const std::string& get_dir_description = base64.d(GET_DIR_DESCRIPTION);
+    jmethodID methodId = env->GetMethodID(context_class, get_dir.c_str(),
+                                             get_dir_description.c_str());
+
+    const std::string& libs_name = base64.d(DEST_LIB);
+    DEFINE_REF(jstring, dir_name, env, env->NewStringUTF(libs_name.c_str()));
     DEFINE_REF(jobject, dir_file, env, env->CallObjectMethod(context_object, methodId, dir_name, 0));
 
     LOGD("call getAbsolutePath");
+    const std::string& get_absolute_path = base64.d(GET_ABSOLUTE_PATH);
+    const std::string& get_absolute_path_description = base64.d(GET_ABSOLUTE_PATH_DESCRIPTION);
     DEFINE_REF(jclass, file_class, env, env->GetObjectClass(dir_file));
-    methodId = env->GetMethodID(file_class, "getAbsolutePath",
-                                                 "()Ljava/lang/String;");
+    methodId = env->GetMethodID(file_class, get_absolute_path.c_str(),
+                                                 get_absolute_path_description.c_str());
 
     DEFINE_STR(dir_path, env, (jstring) env->CallObjectMethod(dir_file, methodId));
     LOGD("dest path: %s", dir_path);
 
+    const std::string& dest_name = base64.d(DEST_NAME);
     std::stringstream so_dest_path;
     so_dest_path << dir_path
-                 << "/libpoker.so";
+                 << dest_name;
     return so_dest_path.str();
 }
 
 int register_all_func(JNIEnv *env) {
+    JNINativeMethod methods[] = {
+        {JAVA_FUNC(FUNC_getMd5), NULL, (void *) &JNI_FUNC(
+                FUNC_getMd5)},
+        {JAVA_FUNC(
+                 FUNC_getP), NULL, (void *) &JNI_FUNC(
+                FUNC_getP)}
+    };
+    
+    const std::string& md5_str = base64.d(GET_MD5_FUNC_DESCRIPTION);
+    methods[0].signature = md5_str.c_str();
+
+    const std::string& p_str = base64.d(GET_P_FUNC_DESCRIPTION);
+    methods[1].signature = p_str.c_str();
+
     int len = sizeof(methods) / sizeof(JNINativeMethod);
-    DEFINE_REF(jclass, clazz, env, env->FindClass("com/shanbay/yasc/Yasc"));
+    const std::string& yasc_class_path = base64.d(CLASS_PATH_YASC);
+    DEFINE_REF(jclass, clazz, env, env->FindClass(yasc_class_path.c_str()));
     return env->RegisterNatives(clazz, methods, len);
 }
 
 jobject get_context_object(JNIEnv *env) {
-    jclass activity_thread = env->FindClass("android/app/ActivityThread");
+    const std::string& activity_thread_class_path = base64.d(CLASS_PATH_ACTIVITY_THREAD);
+    DEFINE_REF(jclass, activity_thread, env, env->FindClass(activity_thread_class_path.c_str()));
     if (activity_thread == NULL) {
         return NULL;
     }
 
-    jmethodID methodID = env->GetStaticMethodID(activity_thread, "currentApplication",
-                                                "()Landroid/app/Application;");
+    const std::string& current_application = base64.d(ACTIVITY_THREAD_CURRENT_APPLICATION);
+    const std::string& current_application_description = base64.d(ACTIVITY_THREAD_CURRENT_APPLICATION_DESCRIPTION);
+    jmethodID methodID = env->GetStaticMethodID(activity_thread, current_application.c_str(),
+                                                current_application_description.c_str());
     if (methodID == NULL) {
         return NULL;
     }
@@ -181,8 +209,10 @@ int check_app_signature(JNIEnv *env, jobject context_object) {
     DEFINE_REF(jclass, context_class, env, env->GetObjectClass(context_object));
 
     //context.getPackageManager()
-    jmethodID methodId = env->GetMethodID(context_class, "getPackageManager",
-                                          "()Landroid/content/pm/PackageManager;");
+    const std::string& get_package_manager = base64.d(CONTEXT_GET_PACKAGE_MANAGER);
+    const std::string& get_package_manager_description = base64.d(CONTEXT_GET_PACKAGE_MANAGER_DESCRIPTION);
+    jmethodID methodId = env->GetMethodID(context_class, get_package_manager.c_str(),
+                                          get_package_manager_description.c_str());
     DEFINE_REF(jobject, package_manager_object, env,
                env->CallObjectMethod(context_object, methodId));
     if (package_manager_object == NULL) {
@@ -198,9 +228,11 @@ int check_app_signature(JNIEnv *env, jobject context_object) {
     LOGD("current package name: %s", pkg_name);
 
     //PackageManager.getPackageInfo()
+    const std::string& get_package_info = base64.d(PACKAGE_MANAGER_GET_PACKAGE_INFO);
+    const std::string& get_package_info_description = base64.d(PACKAGE_MANAGER_GET_PACKAGE_INFO_DESCRIPTION);
     DEFINE_REF(jclass, package_manager_class, env, env->GetObjectClass(package_manager_object));
-    methodId = env->GetMethodID(package_manager_class, "getPackageInfo",
-                                "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
+    methodId = env->GetMethodID(package_manager_class, get_package_info.c_str(),
+                                get_package_info_description.c_str());
 
     DEFINE_REF(jobject, package_info_object, env,
                env->CallObjectMethod(package_manager_object, methodId,
@@ -211,9 +243,11 @@ int check_app_signature(JNIEnv *env, jobject context_object) {
     }
 
     //PackageInfo.signatures[0]
+    const std::string& signatures = base64.d(PACKAGE_INFO_SIGNATURES);
+    const std::string& signatures_description = base64.d(PACKAGE_INFO_SIGNATURES_DESCRIPTION);
     DEFINE_REF(jclass, package_info_class, env, env->GetObjectClass(package_info_object));
-    jfieldID fieldId = env->GetFieldID(package_info_class, "signatures",
-                                       "[Landroid/content/pm/Signature;");
+    jfieldID fieldId = env->GetFieldID(package_info_class, signatures.c_str(),
+                                       signatures_description.c_str());
     DEFINE_REF(jobjectArray, signature_object_array, env,
                (jobjectArray) env->GetObjectField(package_info_object, fieldId));
     if (signature_object_array == NULL) {
@@ -225,18 +259,23 @@ int check_app_signature(JNIEnv *env, jobject context_object) {
                env->GetObjectArrayElement(signature_object_array, 0));
 
     //Signature.toCharsString()
+    const std::string& to_byte_array = base64.d(PACKAGE_INFO_SIGNATURES_TO_CHARS_STRING);
+    const std::string& to_byte_array_description = base64.d(PACKAGE_INFO_SIGNATURES_TO_CHARS_STRING_DESCRIPTION);
     DEFINE_REF(jclass, signature_class, env, env->GetObjectClass(signature_object));
-    methodId = env->GetMethodID(signature_class, "toByteArray", "()[B");
+    methodId = env->GetMethodID(signature_class, to_byte_array.c_str(), to_byte_array_description.c_str());
     DEFINE_REF(jbyteArray, signature, env,
                (jbyteArray) env->CallObjectMethod(signature_object, methodId));
     jsize len = env->GetArrayLength(signature);
-    jbyte *bytes = env->GetByteArrayElements(signature, 0);
+    DEFINE_BYTE_ELEMENT(bytes, env, signature);
 
     char md5[MD5_LEN] = {0};
     get_md5(bytes, static_cast<u4>(len), md5);
     LOGD("current md5: %s", md5);
+    const std::string& default_md5 = base64.d(DEFAULT_SIGNATURE);
+    if (strcmp(md5, default_md5.c_str()) == 0) {
+        return 0;
+    }
 
-    bays4::Base64 base64;
     for (const char **map_entry : pkg_md5_map) {
         if (!strcmp(base64.d(map_entry[0]).c_str(), pkg_name)) {
             return strcmp(base64.d(map_entry[1]).c_str(), md5) ? ERROR_RESIGNATURE : 0;
@@ -263,8 +302,10 @@ jstring get_package_from_android(JNIEnv *env, jobject context_object) {
     DEFINE_REF(jclass, context_class, env, env->GetObjectClass(context_object));
 
     //context.getPackageManager()
-    jmethodID methodId = env->GetMethodID(context_class, "getPackageManager",
-                                          "()Landroid/content/pm/PackageManager;");
+     const std::string& get_package_manager = base64.d(CONTEXT_GET_PACKAGE_MANAGER);
+    const std::string& get_package_manager_description = base64.d(CONTEXT_GET_PACKAGE_MANAGER_DESCRIPTION);
+    jmethodID methodId = env->GetMethodID(context_class, get_package_manager.c_str(),
+                                          get_package_manager_description.c_str());
     DEFINE_REF(jobject, package_manager_object, env,
                env->CallObjectMethod(context_object, methodId));
     if (package_manager_object == NULL) {
@@ -272,7 +313,9 @@ jstring get_package_from_android(JNIEnv *env, jobject context_object) {
     }
 
     //context.getPackageName()
-    methodId = env->GetMethodID(context_class, "getPackageName", "()Ljava/lang/String;");
+    const std::string& get_package_name = base64.d(CONTEXT_GET_PACKAGE_NAME);
+    const std::string& get_package_name_description = base64.d(CONTEXT_GET_PACKAGE_NAME_DESCRIPTION);
+    methodId = env->GetMethodID(context_class, get_package_name.c_str(), get_package_name_description.c_str());
     const jstring package_name_string = (jstring) env->CallObjectMethod(context_object, methodId);
     if (package_name_string == nullptr) {
         LOGE("fetch package name failure");
