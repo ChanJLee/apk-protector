@@ -3,6 +3,6 @@ android protector is a library for protect your apk.
 
 # TODO LIST
 
-- [ ] ptrace
+- [x] ptrace
 - [x] repackage
 - [ ] so encrypt
